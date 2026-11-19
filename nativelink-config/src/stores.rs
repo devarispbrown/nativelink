@@ -21,6 +21,8 @@ use rand::Rng;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "dev-schema")]
+use crate::schema;
 use crate::serde_utils::{
     convert_boolean_with_shellexpand, convert_data_size_with_shellexpand,
     convert_duration_with_shellexpand, convert_numeric_with_shellexpand,
@@ -762,6 +764,10 @@ pub struct ShardConfig {
     ///
     /// Default: 1
     #[serde(deserialize_with = "convert_optional_numeric_with_shellexpand")]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::Numeric<u32>>")
+    )]
     pub weight: Option<u32>,
 }
 
@@ -788,6 +794,7 @@ pub struct CacheMetricsSpec {
     /// This only gates removal through this wrapper, not the backend's own
     /// eviction policy. Place the wrapper around the tier inside the verifier.
     #[serde(default, deserialize_with = "convert_boolean_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Boolean"))]
     pub allow_remove: bool,
 
     /// Store to wrap with cache operation metrics.
@@ -800,6 +807,7 @@ pub struct CacheMetricsSpec {
 pub struct SizePartitioningSpec {
     /// Size to partition the data on.
     #[serde(deserialize_with = "convert_data_size_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<u64>"))]
     pub size: u64,
 
     /// Store to send data when object is < (less than) size.
@@ -842,6 +850,7 @@ pub struct FilesystemSpec {
     /// to the default value except for testing.
     /// Default: 32k.
     #[serde(default, deserialize_with = "convert_data_size_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<u32>"))]
     pub read_buffer_size: u32,
 
     /// Policy used to evict items out of the store. Failure to set this
@@ -854,6 +863,7 @@ pub struct FilesystemSpec {
     /// For a 4KB block size filesystem, a 1B file actually consumes 4KB
     /// Default: 4kb
     #[serde(default, deserialize_with = "convert_data_size_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<u64>"))]
     pub block_size: u64,
 
     /// Maximum number of concurrent write operations allowed.
@@ -864,6 +874,7 @@ pub struct FilesystemSpec {
     /// A value of 0 means unlimited (no concurrency limit).
     /// Default: unlimited
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub max_concurrent_writes: usize,
 
     /// When true, advise the kernel to drop the page cache for each blob after
@@ -1027,6 +1038,10 @@ pub struct ExperimentalOssSpec {
         default,
         deserialize_with = "convert_optional_numeric_with_shellexpand"
     )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::Numeric<usize>>")
+    )]
     pub multipart_max_concurrent_uploads: Option<usize>,
 }
 
@@ -1055,6 +1070,7 @@ pub struct OntapS3ExistenceCacheSpec {
     #[serde(deserialize_with = "convert_string_with_shellexpand")]
     pub index_path: String,
     #[serde(deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u32>"))]
     pub sync_interval_seconds: u32,
     pub backend: Box<ExperimentalOntapS3Spec>,
 }
@@ -1111,6 +1127,7 @@ pub struct FastSlowSpec {
     /// but the right value is workload-dependent.
     /// Default: disabled (0)
     #[serde(default, deserialize_with = "convert_data_size_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<u64>"))]
     pub bypass_dedup_threshold_bytes: u64,
 
     /// Maximum seconds an existence check (`has`, which serves
@@ -1128,6 +1145,7 @@ pub struct FastSlowSpec {
     /// before this field existed — so nothing changes until it is set.
     /// Default: 0 (wait indefinitely)
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<usize>"))]
     pub has_slow_write_wait_timeout_s: usize,
 
     /// Maximum seconds a cache fill (the read that populates the fast tier
@@ -1146,6 +1164,7 @@ pub struct FastSlowSpec {
     /// remote store whose commit can wedge.
     /// `0` (the default) keeps today's behavior: no inactivity bound.
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<usize>"))]
     pub leader_inactivity_timeout_s: usize,
 }
 
@@ -1178,6 +1197,7 @@ pub struct DedupSpec {
     ///
     /// Default: 64k
     #[serde(default, deserialize_with = "convert_data_size_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<u32>"))]
     pub min_size: u32,
 
     /// A best-effort attempt will be made to keep the average size
@@ -1192,12 +1212,14 @@ pub struct DedupSpec {
     ///
     /// Default: 256k
     #[serde(default, deserialize_with = "convert_data_size_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<u32>"))]
     pub normal_size: u32,
 
     /// Maximum size a chunk is allowed to be.
     ///
     /// Default: 512k
     #[serde(default, deserialize_with = "convert_data_size_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<u32>"))]
     pub max_size: u32,
 
     /// Due to implementation detail, we want to prefer to download
@@ -1212,6 +1234,7 @@ pub struct DedupSpec {
     ///
     /// Default: 10
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u32>"))]
     pub max_concurrent_fetch_per_get: u32,
 }
 
@@ -1248,6 +1271,7 @@ pub struct VerifySpec {
     ///
     /// This should be set to false for AC, but true for CAS stores.
     #[serde(default, deserialize_with = "convert_boolean_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Boolean"))]
     pub verify_size: bool,
 
     /// If the data should be hashed and verify that the key matches the
@@ -1256,6 +1280,7 @@ pub struct VerifySpec {
     ///
     /// This should be set to false for AC, but true for CAS stores.
     #[serde(default, deserialize_with = "convert_boolean_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Boolean"))]
     pub verify_hash: bool,
 }
 
@@ -1281,6 +1306,7 @@ pub struct Lz4Config {
     ///
     /// Default: 65536 (64k).
     #[serde(default, deserialize_with = "convert_data_size_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<u32>"))]
     pub block_size: u32,
 
     /// Maximum size allowed to attempt to deserialize data into.
@@ -1292,6 +1318,7 @@ pub struct Lz4Config {
     ///
     /// Default: value in `block_size`.
     #[serde(default, deserialize_with = "convert_data_size_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<u32>"))]
     pub max_decode_block_size: u32,
 }
 
@@ -1335,6 +1362,7 @@ pub struct EvictionPolicy {
     /// Maximum number of bytes before eviction takes place.
     /// Default: 0. Zero means never evict based on size.
     #[serde(default, deserialize_with = "convert_data_size_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<usize>"))]
     pub max_bytes: usize,
 
     /// When eviction starts based on hitting `max_bytes`, continue until
@@ -1342,17 +1370,20 @@ pub struct EvictionPolicy {
     /// operations from thrashing when the store is close to the limit.
     /// Default: 0
     #[serde(default, deserialize_with = "convert_data_size_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<usize>"))]
     pub evict_bytes: usize,
 
     /// Maximum number of seconds for an entry to live since it was last
     /// accessed before it is evicted.
     /// Default: 0. Zero means never evict based on time.
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u32>"))]
     pub max_seconds: u32,
 
     /// Maximum size of the store before an eviction takes place.
     /// Default: 0. Zero means never evict based on count.
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub max_count: u64,
 }
 
@@ -1400,6 +1431,7 @@ pub struct ExperimentalAwsSpec {
     ///
     /// Default: false
     #[serde(default, deserialize_with = "convert_boolean_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Boolean"))]
     pub force_path_style: bool,
 
     /// Access key to sign requests with. When this and `secret_access_key` are
@@ -1432,6 +1464,10 @@ pub struct ExperimentalGcsSpec {
         default,
         deserialize_with = "convert_optional_data_size_with_shellexpand"
     )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::DataSize<usize>>")
+    )]
     pub resumable_chunk_size: Option<usize>,
 
     /// Common retry and upload configuration
@@ -1440,16 +1476,19 @@ pub struct ExperimentalGcsSpec {
 
     /// Error if authentication was not found.
     #[serde(default, deserialize_with = "convert_boolean_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Boolean"))]
     pub authentication_required: bool,
 
     /// Connection timeout in milliseconds.
     /// Default: 3000
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub connection_timeout_s: u64,
 
     /// Read timeout in milliseconds.
     /// Default: 3000
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub read_timeout_s: u64,
 }
 
@@ -1510,6 +1549,7 @@ pub struct CommonObjectSpec {
     ///
     /// Default: 0. Zero means never consider an object expired.
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u32>"))]
     pub consider_expired_after_s: u32,
 
     /// The maximum buffer size to retain in case of a retryable error
@@ -1522,6 +1562,10 @@ pub struct CommonObjectSpec {
         default,
         deserialize_with = "convert_optional_data_size_with_shellexpand"
     )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::DataSize<usize>>")
+    )]
     pub max_retry_buffer_per_request: Option<usize>,
 
     /// Maximum number of concurrent `UploadPart` requests per `MultipartUpload`.
@@ -1532,12 +1576,17 @@ pub struct CommonObjectSpec {
         default,
         deserialize_with = "convert_optional_numeric_with_shellexpand"
     )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::Numeric<usize>>")
+    )]
     pub multipart_max_concurrent_uploads: Option<usize>,
 
     /// Allow unencrypted HTTP connections. Only use this for local testing.
     ///
     /// Default: false
     #[serde(default, deserialize_with = "convert_boolean_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Boolean"))]
     pub insecure_allow_http: bool,
 
     /// Disable HTTP/2 connections and only use HTTP/1.1. Default client
@@ -1548,6 +1597,7 @@ pub struct CommonObjectSpec {
     ///
     /// Default: false
     #[serde(default, deserialize_with = "convert_boolean_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Boolean"))]
     pub disable_http2: bool,
 
     /// Minimum number of seconds to wait after a response that asked the
@@ -1591,6 +1641,7 @@ pub struct CommonObjectSpec {
     ///
     /// Default: 0
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub max_concurrent_reads: usize,
 
     /// With `max_concurrent_reads` set, let the bound move: a throttled
@@ -1602,6 +1653,7 @@ pub struct CommonObjectSpec {
     ///
     /// Default: false
     #[serde(default, deserialize_with = "convert_boolean_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Boolean"))]
     pub adaptive_read_concurrency: bool,
 
     /// Floor for the adaptive read bound.
@@ -1611,6 +1663,7 @@ pub struct CommonObjectSpec {
         default = "default_min_concurrent_reads",
         deserialize_with = "convert_numeric_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub min_concurrent_reads: usize,
 
     /// Most requests of any kind this store keeps in flight against the
@@ -1632,6 +1685,7 @@ pub struct CommonObjectSpec {
     ///
     /// Default: 0
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub max_concurrent_requests: usize,
 }
 
@@ -1730,29 +1784,37 @@ pub struct GrpcEndpoint {
         default,
         deserialize_with = "convert_optional_numeric_with_shellexpand"
     )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::Numeric<usize>>")
+    )]
     pub concurrency_limit: Option<usize>,
 
     /// Timeout for establishing a TCP connection to the endpoint (seconds).
     /// If not set or 0, defaults to 30 seconds.
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub connect_timeout_s: u64,
 
     /// TCP keepalive interval (seconds). Sends TCP keepalive probes at this
     /// interval to detect dead connections at the OS level.
     /// If not set or 0, defaults to 30 seconds.
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub tcp_keepalive_s: u64,
 
     /// HTTP/2 keepalive interval (seconds). Sends HTTP/2 PING frames at this
     /// interval to detect dead connections at the application level.
     /// If not set or 0, defaults to 30 seconds.
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub http2_keepalive_interval_s: u64,
 
     /// HTTP/2 keepalive timeout (seconds). If a PING response is not received
     /// within this duration, the connection is considered dead.
     /// If not set or 0, defaults to 20 seconds.
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub http2_keepalive_timeout_s: u64,
 }
 
@@ -1778,12 +1840,14 @@ pub struct GrpcSpec {
     /// value of zero is treated as unlimited. If the limit is reached the
     /// request is queued.
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub max_concurrent_requests: usize,
 
     /// The number of connections to make to each specified endpoint to balance
     /// the load over multiple TCP connections.
     /// Default: 1.
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub connections_per_endpoint: usize,
 
     /// Maximum time (seconds) allowed for a single RPC request (e.g. a
@@ -1798,6 +1862,7 @@ pub struct GrpcSpec {
     ///
     /// Default: 0 (disabled)
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub rpc_timeout_s: u64,
 
     /// Use legacy `ByteStream` resource name format, omitting the digest
@@ -1814,6 +1879,7 @@ pub struct GrpcSpec {
     ///
     /// Default: false
     #[serde(default, deserialize_with = "convert_boolean_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Boolean"))]
     pub use_legacy_resource_names: bool,
 
     /// Static headers to attach to every outgoing gRPC request sent to this
@@ -1883,6 +1949,7 @@ pub struct GrpcSpec {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "convert_boolean_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Boolean"))]
     pub experimental_remote_cache_compression: Option<bool>,
 }
 
@@ -1908,6 +1975,7 @@ pub struct GrpcReadBatchingConfig {
         default = "default_read_batching_max_blob_size_bytes",
         deserialize_with = "convert_data_size_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<u64>"))]
     pub max_blob_size_bytes: u64,
 
     /// Maximum total payload bytes packed into a single `BatchReadBlobs`
@@ -1919,6 +1987,7 @@ pub struct GrpcReadBatchingConfig {
         default = "default_read_batching_max_batch_bytes",
         deserialize_with = "convert_data_size_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<u64>"))]
     pub max_batch_bytes: u64,
 
     /// Maximum number of concurrent `BatchReadBlobs` RPCs dispatched by the
@@ -1929,6 +1998,7 @@ pub struct GrpcReadBatchingConfig {
         default = "default_read_batching_dispatch_slots",
         deserialize_with = "convert_numeric_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub dispatch_slots: usize,
 
     /// Bound on the number of payload bytes waiting in the coalescer queue.
@@ -1940,6 +2010,7 @@ pub struct GrpcReadBatchingConfig {
         default = "default_read_batching_max_queued_bytes",
         deserialize_with = "convert_data_size_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<u64>"))]
     pub max_queued_bytes: u64,
 }
 
@@ -2039,6 +2110,7 @@ pub struct RedisSpec {
 
     /// Deprecated as redis-rs doesn't use it
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub broadcast_channel_capacity: usize,
 
     /// The amount of time in milliseconds until the redis store considers the
@@ -2047,6 +2119,7 @@ pub struct RedisSpec {
     ///
     /// Default: 10000 (10 seconds)
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub command_timeout_ms: u64,
 
     /// The amount of time in milliseconds until the redis store considers the
@@ -2055,12 +2128,14 @@ pub struct RedisSpec {
     ///
     /// Default: 3000 (3 seconds)
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub connection_timeout_ms: u64,
 
     /// Per-call ceiling for the `check_health` PING in milliseconds.
     ///
     /// Default: 4000 (4 seconds)
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub health_check_timeout_ms: u64,
 
     /// The amount of data to read from the redis server at a time.
@@ -2074,12 +2149,14 @@ pub struct RedisSpec {
     ///
     /// Default: 64KiB
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub read_chunk_size: usize,
 
     /// The number of connections to keep open to the redis servers.
     ///
     /// Default: 3
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub connection_pool_size: usize,
 
     /// Expire keys written by this store after this many seconds.
@@ -2109,6 +2186,7 @@ pub struct RedisSpec {
     ///
     /// Default: 0 (keys never expire)
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub key_ttl_s: u64,
 
     /// The maximum number of upload chunks to allow per update.
@@ -2120,6 +2198,7 @@ pub struct RedisSpec {
     ///
     /// Default: 10
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub max_chunk_uploads_per_update: usize,
 
     /// The COUNT value passed when scanning keys in Redis.
@@ -2127,6 +2206,7 @@ pub struct RedisSpec {
     ///
     /// Default: 10000
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub scan_count: usize,
 
     /// Retry configuration to use when a network request fails.
@@ -2137,12 +2217,14 @@ pub struct RedisSpec {
     /// This stops problems with timeouts due to many, many inflight actions
     /// Default: 500
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub max_client_permits: usize,
 
     /// Maximum number of items returned per cursor for the search indexes
     /// May reduce thundering herd issues with worker provisioner at higher node counts,
     /// Default: 1500
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub max_count_per_cursor: u64,
 
     /// Replace scheduler indexes an older release created `TEMPORARY` with
@@ -2222,6 +2304,7 @@ pub struct Retry {
     /// Maximum number of retries until retrying stops.
     /// Setting this to zero will always attempt 1 time, but not retry.
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub max_retries: usize,
 
     /// Delay in seconds for exponential back off.
@@ -2287,28 +2370,33 @@ pub struct ExperimentalMongoSpec {
     /// The maximum amount of data to read from `MongoDB` in a single chunk (in bytes).
     /// Default: 65536 (64KB)
     #[serde(default, deserialize_with = "convert_data_size_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<usize>"))]
     pub read_chunk_size: usize,
 
     /// Deprecated, unused
     /// Maximum number of concurrent uploads allowed.
     /// Default: 10
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub max_concurrent_uploads: usize,
 
     /// Connection timeout in milliseconds.
     /// Default: 3000
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub connection_timeout_ms: u64,
 
     /// Command timeout in milliseconds.
     /// Default: 10000
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub command_timeout_ms: u64,
 
     /// Enable `MongoDB` change streams for real-time updates.
     /// Required for scheduler subscriptions.
     /// Default: false
     #[serde(default, deserialize_with = "convert_boolean_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Boolean"))]
     pub enable_change_streams: bool,
 
     /// Write concern 'w' parameter.
@@ -2328,6 +2416,10 @@ pub struct ExperimentalMongoSpec {
         default,
         deserialize_with = "convert_optional_numeric_with_shellexpand"
     )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::Numeric<u32>>")
+    )]
     pub write_concern_timeout_ms: Option<u32>,
 
     /// Limits the number of requests at any one time
@@ -2335,6 +2427,10 @@ pub struct ExperimentalMongoSpec {
     #[serde(
         default,
         deserialize_with = "convert_optional_numeric_with_shellexpand"
+    )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::Numeric<usize>>")
     )]
     pub max_requests: Option<usize>,
 }

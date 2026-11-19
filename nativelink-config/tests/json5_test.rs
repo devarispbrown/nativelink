@@ -74,3 +74,29 @@ fn test_example_parsing() {
 
     assert!(found_at_least_one_entry);
 }
+
+const SCHEMA_URL: &str = "https://docs.nativelink.com/schema/latest.json";
+
+#[test]
+fn top_level_schema_key_is_accepted() {
+    let config = CasConfig::try_from_json5_str(&format!(
+        r#"{{ "$schema": "{SCHEMA_URL}", stores: [], servers: [] }}"#
+    ))
+    .expect("A top-level $schema key should parse");
+    assert_eq!(config.schema.as_deref(), Some(SCHEMA_URL));
+}
+
+#[test]
+fn schema_key_is_rejected_below_the_top_level() {
+    let err = CasConfig::try_from_json5_str(&format!(
+        r#"{{
+          stores: [{{ name: "AC", memory: {{ "$schema": "{SCHEMA_URL}" }} }}],
+          servers: [],
+        }}"#
+    ))
+    .expect_err("$schema is only allowed at the top level");
+    assert!(
+        err.to_string().contains("$schema"),
+        "Error should name the unknown field: {err}"
+    );
+}

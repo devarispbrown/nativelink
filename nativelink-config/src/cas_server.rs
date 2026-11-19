@@ -22,6 +22,8 @@ use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::schedulers::{ExperimentalSimpleSchedulerBackend, SchedulerSpec};
+#[cfg(feature = "dev-schema")]
+use crate::schema;
 use crate::serde_utils::{
     convert_boolean_with_shellexpand, convert_data_size_with_shellexpand,
     convert_duration_with_shellexpand, convert_numeric_with_shellexpand,
@@ -272,12 +274,14 @@ pub struct CapabilitiesConfig {
         skip_serializing_if = "is_default",
         deserialize_with = "convert_boolean_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Boolean"))]
     pub remote_cache_compression: bool,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "dev-schema", derive(JsonSchema))]
+#[cfg_attr(feature = "dev-schema", schemars(transform = schema::add_aliases))]
 pub struct ExecutionConfig {
     /// Keep identical in-flight Buck2 actions from different invocations on
     /// separate workers. Completed action-cache results remain shared. Pair
@@ -286,6 +290,7 @@ pub struct ExecutionConfig {
     /// the default deduplication behavior. All schedulers serving the instance
     /// must use a runtime supporting this execution scope before enabling it.
     #[serde(default, deserialize_with = "convert_boolean_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Boolean"))]
     pub experimental_buck2_invocation_isolation: bool,
 
     /// Seconds between re-sends of the operation's current state on an
@@ -304,6 +309,7 @@ pub struct ExecutionConfig {
         skip_serializing_if = "is_default",
         alias = "execute_stream_heartbeat"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<usize>"))]
     pub execute_stream_heartbeat_s: usize,
 
     /// The store name referenced in the `stores` map in the main config.
@@ -376,6 +382,7 @@ pub struct FetchDownloaderConfig {
     /// Maximum downloaded object size, checked even without Content-Length.
     /// Zero means no size limit (the default).
     #[serde(default, deserialize_with = "convert_data_size_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<u64>"))]
     pub max_size_bytes: u64,
 
     /// Maximum simultaneous download requests per instance, including CAS publication.
@@ -387,6 +394,7 @@ pub struct FetchDownloaderConfig {
     /// Total origin retrieval timeout across all candidate URIs, including CAS writes.
     /// Request timeouts are clamped to this limit. Zero selects the default: 300 seconds.
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub timeout_s: u64,
 }
 
@@ -413,6 +421,7 @@ fn is_default<T: Default + PartialEq>(t: &T) -> bool {
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "dev-schema", derive(JsonSchema))]
+#[cfg_attr(feature = "dev-schema", schemars(transform = schema::add_aliases))]
 pub struct ByteStreamConfig {
     /// Name of the store in the "stores" configuration.
     pub cas_store: StoreRefName,
@@ -428,6 +437,7 @@ pub struct ByteStreamConfig {
         deserialize_with = "convert_data_size_with_shellexpand",
         skip_serializing_if = "is_default"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<usize>"))]
     pub max_bytes_per_stream: usize,
 
     /// In the event a client disconnects while uploading a blob, we will hold
@@ -442,6 +452,7 @@ pub struct ByteStreamConfig {
         skip_serializing_if = "is_default",
         alias = "persist_stream_on_disconnect_timeout"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<usize>"))]
     pub persist_stream_on_disconnect_timeout_s: usize,
 
     /// Recover a resumed upload (a write whose first offset is nonzero) that
@@ -477,6 +488,8 @@ impl Default for ByteStreamConfig {
 // with newer fields, and eventually dropped
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "dev-schema", derive(JsonSchema))]
+#[cfg_attr(feature = "dev-schema", schemars(transform = schema::add_aliases))]
 pub struct OldByteStreamConfig {
     pub cas_stores: HashMap<InstanceName, StoreRefName>,
     #[serde(
@@ -484,12 +497,14 @@ pub struct OldByteStreamConfig {
         deserialize_with = "convert_data_size_with_shellexpand",
         skip_serializing_if = "is_default"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<usize>"))]
     pub max_bytes_per_stream: usize,
     #[serde(
         default,
         deserialize_with = "convert_data_size_with_shellexpand",
         skip_serializing_if = "is_default"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<usize>"))]
     pub max_decoding_message_size: usize,
     #[serde(
         default,
@@ -497,6 +512,7 @@ pub struct OldByteStreamConfig {
         skip_serializing_if = "is_default",
         alias = "persist_stream_on_disconnect_timeout"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<usize>"))]
     pub persist_stream_on_disconnect_timeout_s: usize,
 }
 
@@ -615,6 +631,7 @@ pub struct OriginEventsSpec {
     ///
     /// Default: 65536 (zero defaults to this)
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub max_event_queue_size: usize,
 }
 
@@ -629,6 +646,10 @@ pub struct ServicesConfig {
         default,
         deserialize_with = "super::backcompat::opt_vec_with_instance_name"
     )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::InstanceServices<CasStoreConfig>>")
+    )]
     pub cas: Option<Vec<WithInstanceName<CasStoreConfig>>>,
 
     /// The Action Cache (AC) backend config.
@@ -637,6 +658,10 @@ pub struct ServicesConfig {
     #[serde(
         default,
         deserialize_with = "super::backcompat::opt_vec_with_instance_name"
+    )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::InstanceServices<AcStoreConfig>>")
     )]
     pub ac: Option<Vec<WithInstanceName<AcStoreConfig>>>,
 
@@ -647,6 +672,10 @@ pub struct ServicesConfig {
         default,
         deserialize_with = "super::backcompat::opt_vec_with_instance_name"
     )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::InstanceServices<CapabilitiesConfig>>")
+    )]
     pub capabilities: Option<Vec<WithInstanceName<CapabilitiesConfig>>>,
 
     /// The remote execution service configuration.
@@ -656,12 +685,20 @@ pub struct ServicesConfig {
         default,
         deserialize_with = "super::backcompat::opt_vec_with_instance_name"
     )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::InstanceServices<ExecutionConfig>>")
+    )]
     pub execution: Option<Vec<WithInstanceName<ExecutionConfig>>>,
 
     /// This is the service used to stream data to and from the CAS.
     /// Bazel's protocol strongly encourages users to use this streaming
     /// interface to interact with the CAS when the data is large.
     #[serde(default, deserialize_with = "super::backcompat::opt_bytestream")]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::ByteStreamServices>")
+    )]
     pub bytestream: Option<Vec<WithInstanceName<ByteStreamConfig>>>,
 
     /// These two are collectively the Remote Asset protocol, but it's
@@ -670,11 +707,19 @@ pub struct ServicesConfig {
         default,
         deserialize_with = "super::backcompat::opt_vec_with_instance_name"
     )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::InstanceServices<FetchConfig>>")
+    )]
     pub fetch: Option<Vec<WithInstanceName<FetchConfig>>>,
 
     #[serde(
         default,
         deserialize_with = "super::backcompat::opt_vec_with_instance_name"
+    )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::InstanceServices<PushConfig>>")
     )]
     pub push: Option<Vec<WithInstanceName<PushConfig>>>,
 
@@ -732,6 +777,7 @@ pub struct TlsConfig {
 #[derive(Deserialize, Serialize, Debug, Default, Clone, Copy)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "dev-schema", derive(JsonSchema))]
+#[cfg_attr(feature = "dev-schema", schemars(transform = schema::add_aliases))]
 pub struct HttpServerConfig {
     /// Interval to send keep-alive pings via HTTP2.
     /// Note: This is in seconds.
@@ -739,11 +785,19 @@ pub struct HttpServerConfig {
         default,
         deserialize_with = "convert_optional_numeric_with_shellexpand"
     )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::Numeric<u32>>")
+    )]
     pub http2_keep_alive_interval: Option<u32>,
 
     #[serde(
         default,
         deserialize_with = "convert_optional_numeric_with_shellexpand"
+    )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::Numeric<u32>>")
     )]
     pub experimental_http2_max_pending_accept_reset_streams: Option<u32>,
 
@@ -751,11 +805,19 @@ pub struct HttpServerConfig {
         default,
         deserialize_with = "convert_optional_numeric_with_shellexpand"
     )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::Numeric<u32>>")
+    )]
     pub experimental_http2_initial_stream_window_size: Option<u32>,
 
     #[serde(
         default,
         deserialize_with = "convert_optional_numeric_with_shellexpand"
+    )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::Numeric<u32>>")
     )]
     pub experimental_http2_initial_connection_window_size: Option<u32>,
 
@@ -766,11 +828,19 @@ pub struct HttpServerConfig {
         default,
         deserialize_with = "convert_optional_numeric_with_shellexpand"
     )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::Numeric<u32>>")
+    )]
     pub experimental_http2_max_frame_size: Option<u32>,
 
     #[serde(
         default,
         deserialize_with = "convert_optional_numeric_with_shellexpand"
+    )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::Numeric<u32>>")
     )]
     pub experimental_http2_max_concurrent_streams: Option<u32>,
 
@@ -779,11 +849,19 @@ pub struct HttpServerConfig {
         deserialize_with = "convert_optional_numeric_with_shellexpand",
         alias = "experimental_http2_keep_alive_timeout"
     )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::Numeric<u32>>")
+    )]
     pub experimental_http2_keep_alive_timeout_s: Option<u32>,
 
     #[serde(
         default,
         deserialize_with = "convert_optional_numeric_with_shellexpand"
+    )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::Numeric<u32>>")
     )]
     pub experimental_http2_max_send_buf_size: Option<u32>,
 
@@ -793,6 +871,10 @@ pub struct HttpServerConfig {
     #[serde(
         default,
         deserialize_with = "convert_optional_numeric_with_shellexpand"
+    )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::Numeric<u32>>")
     )]
     pub experimental_http2_max_header_list_size: Option<u32>,
 }
@@ -844,6 +926,7 @@ pub struct HttpListener {
     /// Maximum number of bytes to decode on each grpc stream chunk.
     /// Default: 4 MiB
     #[serde(default, deserialize_with = "convert_data_size_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<usize>"))]
     pub max_decoding_message_size: usize,
 
     /// Tls Configuration for this server.
@@ -936,6 +1019,7 @@ pub struct CapacityConfig {
         default = "default_capacity_overhead_cpu_millicores",
         deserialize_with = "convert_numeric_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub overhead_cpu_millicores: u64,
 
     /// Memory the worker keeps for itself (the process, its directory cache,
@@ -945,6 +1029,7 @@ pub struct CapacityConfig {
         default = "default_capacity_overhead_memory_kb",
         deserialize_with = "convert_numeric_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub overhead_memory_kb: u64,
 
     /// Percent the advertised memory is reduced by, so that actions at their
@@ -956,6 +1041,10 @@ pub struct CapacityConfig {
     #[serde(
         default,
         deserialize_with = "convert_optional_numeric_with_shellexpand"
+    )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::Numeric<u64>>")
     )]
     pub memory_headroom_percent: Option<u64>,
 }
@@ -1014,6 +1103,7 @@ pub struct EndpointConfig {
     /// scheduler connection so a dead peer is noticed at the OS level.
     /// If not set or 0, defaults to 30 seconds.
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub tcp_keepalive_s: u64,
 
     /// HTTP/2 keepalive interval (seconds): PING frames on the scheduler
@@ -1021,12 +1111,14 @@ pub struct EndpointConfig {
     /// hanging every message on it.
     /// If not set or 0, defaults to 30 seconds.
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub http2_keepalive_interval_s: u64,
 
     /// HTTP/2 keepalive timeout (seconds): a PING unanswered for this long
     /// ends the connection, and the worker reconnects.
     /// If not set or 0, defaults to 20 seconds.
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub http2_keepalive_timeout_s: u64,
 
     /// The TLS configuration to use to connect to the endpoint.
@@ -1089,6 +1181,7 @@ pub struct ResourceEnforcementConfig {
         default = "default_memory_headroom_percent",
         deserialize_with = "convert_numeric_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub memory_headroom_percent: u64,
 
     /// Percent above its disk reservation an action's own files may reach
@@ -1098,6 +1191,7 @@ pub struct ResourceEnforcementConfig {
         default = "default_memory_headroom_percent",
         deserialize_with = "convert_numeric_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub disk_headroom_percent: u64,
 
     /// Kill one running action once the worker's cgroup has spent at least
@@ -1116,6 +1210,7 @@ pub struct ResourceEnforcementConfig {
     /// the choice is made from. Values over 100 are read as 100. 0 disables.
     /// Default: 0
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub memory_pressure_kill_percent: u64,
 
     /// How long `memory.pressure` must stay at or above
@@ -1126,6 +1221,7 @@ pub struct ResourceEnforcementConfig {
         default = "default_memory_pressure_kill_after_s",
         deserialize_with = "convert_duration_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub memory_pressure_kill_after_s: u64,
 }
 
@@ -1322,12 +1418,14 @@ pub struct PersistentWorkersConfig {
     /// runs one-shot. 0 takes the default.
     /// Default: 4
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub max_workers_per_key: usize,
 
     /// Seconds an idle worker process is kept before the sweeper shuts it
     /// down. 0 takes the default.
     /// Default: 300
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub idle_timeout_s: u64,
 
     /// Requests a worker process serves before it is retired and replaced,
@@ -1335,12 +1433,14 @@ pub struct PersistentWorkersConfig {
     /// default.
     /// Default: 200
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub max_requests_per_worker: u64,
 
     /// Milliseconds a worker process being shut down gets to exit on its
     /// own (its stdin is closed) before SIGKILL. 0 takes the default.
     /// Default: 5000
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub shutdown_grace_ms: u64,
 
     /// Seconds an action waits for a worker process to come back when its
@@ -1348,6 +1448,7 @@ pub struct PersistentWorkersConfig {
     /// one-shot instead. 0 takes the default.
     /// Default: 30
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub acquire_timeout_s: u64,
 }
 
@@ -1409,6 +1510,7 @@ pub struct Buck2FileCaptureConfig {
     /// records a partial capture on timeout; build success/failure is unchanged.
     /// Default: 120 seconds (zero selects this default).
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<usize>"))]
     pub finalize_timeout_s: usize,
 }
 
@@ -1419,6 +1521,7 @@ pub struct Buck2FileCaptureConfig {
 #[derive(Deserialize, Serialize, Debug, Default)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "dev-schema", derive(JsonSchema))]
+#[cfg_attr(feature = "dev-schema", schemars(transform = schema::add_aliases))]
 pub struct LocalWorkerConfig {
     /// Name of the worker. This is give a more friendly name to a worker for logging
     /// and metric publishing. This is also the prefix of the worker id
@@ -1439,6 +1542,7 @@ pub struct LocalWorkerConfig {
         deserialize_with = "convert_duration_with_shellexpand",
         alias = "max_action_timeout"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<usize>"))]
     pub max_action_timeout_s: usize,
 
     /// Maximum time allowed for uploading action results to CAS after execution
@@ -1451,6 +1555,7 @@ pub struct LocalWorkerConfig {
         deserialize_with = "convert_duration_with_shellexpand",
         alias = "max_upload_timeout"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<usize>"))]
     pub max_upload_timeout_s: usize,
 
     /// Maximum time allowed for fetching an action's inputs into the worker's
@@ -1475,6 +1580,7 @@ pub struct LocalWorkerConfig {
         deserialize_with = "convert_duration_with_shellexpand",
         alias = "max_download_timeout"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<usize>"))]
     pub max_download_timeout_s: usize,
 
     /// How many input blobs this worker fetches into its store at once,
@@ -1494,6 +1600,7 @@ pub struct LocalWorkerConfig {
     ///
     /// Default: 0 (no shared pool)
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub max_concurrent_input_downloads: usize,
 
     /// Maximum time to wait for action directory cleanup before timing out.
@@ -1501,6 +1608,7 @@ pub struct LocalWorkerConfig {
     ///
     /// Default: 30 seconds
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<usize>"))]
     pub max_cleanup_wait_s: usize,
 
     /// Maximum backoff duration for exponential backoff when waiting for cleanup.
@@ -1508,12 +1616,14 @@ pub struct LocalWorkerConfig {
     ///
     /// Default: 500 milliseconds
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<usize>"))]
     pub max_cleanup_backoff_ms: usize,
 
     /// Maximum number of inflight tasks this worker can cope with.
     ///
     /// Default: 0 (infinite tasks)
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub max_inflight_tasks: u64,
 
     /// Accept one action, upload its results, and exit the worker process.
@@ -1604,6 +1714,7 @@ pub struct LocalWorkerConfig {
     /// hangs used to hold the action forever.
     /// Default: 30000
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub precondition_timeout_ms: u64,
 
     /// Bytes of an action's stdout or stderr kept in memory. Past this the
@@ -1612,6 +1723,7 @@ pub struct LocalWorkerConfig {
     /// worker by that much. 0 keeps everything in memory.
     /// Default: 0
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub max_captured_output_bytes: u64,
 
     /// Seconds between sweeps of `work_directory` for action directories no
@@ -1619,6 +1731,7 @@ pub struct LocalWorkerConfig {
     /// sweep; the directory is still purged at startup.
     /// Default: 0
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub orphan_sweep_interval_s: u64,
 
     /// Milliseconds between the SIGTERM a timed-out or cancelled action
@@ -1628,6 +1741,7 @@ pub struct LocalWorkerConfig {
     /// only; elsewhere the kill is immediate. 0 takes the default.
     /// Default: 5000
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub kill_grace_ms: u64,
 
     /// Give every action its own `TMPDIR` under its action directory,
@@ -1818,6 +1932,7 @@ pub struct DirectoryCacheConfig {
         default = "default_directory_cache_max_size_bytes",
         deserialize_with = "convert_data_size_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<u64>"))]
     pub max_size_bytes: u64,
 
     /// Base directory for cache storage. This directory will be managed by
@@ -1962,6 +2077,7 @@ pub struct GlobalConfig {
     ///
     /// Default: 24576 (= 24 * 1024)
     #[serde(deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub max_open_files: usize,
 
     /// Default hash function to use while uploading blobs to the CAS when not set
@@ -1977,6 +2093,7 @@ pub struct GlobalConfig {
     ///
     /// Default: 1024*1024 (1MiB)
     #[serde(default, deserialize_with = "convert_data_size_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<usize>"))]
     pub default_digest_size_health_check: usize,
 }
 
@@ -1987,6 +2104,11 @@ pub type SchedulerConfig = NamedConfig<SchedulerSpec>;
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "dev-schema", derive(JsonSchema))]
 pub struct CasConfig {
+    /// URL of the JSON Schema for this file, for editors that validate and
+    /// autocomplete against it. The server ignores the value.
+    #[serde(rename = "$schema", default, skip_serializing_if = "Option::is_none")]
+    pub schema: Option<String>,
+
     /// List of stores available to use in this config.
     /// The keys can be used in other configs when needing to reference a store.
     pub stores: Vec<StoreConfig>,

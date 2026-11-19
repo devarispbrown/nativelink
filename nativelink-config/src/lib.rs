@@ -15,5 +15,7 @@
 pub mod backcompat;
 pub mod cas_server;
 pub mod schedulers;
+#[cfg(feature = "dev-schema")]
+pub mod schema;
 pub mod serde_utils;
 pub mod stores;

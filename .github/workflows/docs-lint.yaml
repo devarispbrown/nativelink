@@ -4,7 +4,9 @@
 #
 # Five static lints run on every PR that touches the docs. They are fast, they
 # have no network dependency, and every failure names a file, a line and the
-# edit that fixes it, which is the bar for a gate that blocks merges.
+# edit that fixes it, which is the bar for a gate that blocks merges. The
+# config schema check also builds the schema with cargo, so it fetches crates
+# the way any cargo build does.
 #
 # External link reachability is deliberately NOT here. It fails for reasons a
 # contributor cannot fix (rate limits, transient outages, sites that block CI),
@@ -19,11 +21,18 @@ on:
     paths:
       - "web/apps/docs/**"
       - ".github/workflows/docs-lint.yaml"
+      # The config schema check below reads these.
+      - "nativelink-config/**"
+      - "deployment-examples/**"
+      - "integration_tests/**"
   pull_request:
     branches: [main]
     paths:
       - "web/apps/docs/**"
       - ".github/workflows/docs-lint.yaml"
+      - "nativelink-config/**"
+      - "deployment-examples/**"
+      - "integration_tests/**"
   # Weekly external link sweep. Thursday 05:17, arbitrary, spread away from
   # the other scheduled jobs.
   schedule:
@@ -102,6 +111,18 @@ jobs:
         run: |
           nix develop --impure --command bash -c "
             pnpm run --filter @nativelink/docs lint:snippets
+          "
+
+      # Builds the schema with cargo from the dev shell, then validates every
+      # config in nativelink-config/examples, deployment-examples and
+      # integration_tests against it, so editors using the schema don't flag
+      # configs the server accepts.
+      - name: Shipped configs match the generated schema
+        if: always()
+        working-directory: web
+        run: |
+          nix develop --impure --command bash -c "
+            pnpm run --filter @nativelink/docs lint:config-schema
           "
 
       - name: No calls to action outside the boundary page

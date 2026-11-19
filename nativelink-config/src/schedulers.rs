@@ -18,6 +18,8 @@ use std::collections::HashMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "dev-schema")]
+use crate::schema;
 use crate::serde_utils::{
     convert_data_size_with_shellexpand, convert_duration_with_shellexpand,
     convert_duration_with_shellexpand_and_negative, convert_numeric_with_shellexpand,
@@ -151,12 +153,14 @@ pub struct SimpleSpec {
     /// a `WaitExecution` is called after the action has completed.
     /// Default: 60 seconds
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u32>"))]
     pub retain_completed_for_s: u32,
 
     /// Mark operations as completed with error if no client has updated them
     /// within this duration.
     /// Default: 60 seconds
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub client_action_timeout_s: u64,
 
     /// Periodically count the actions in each stage and report them as the
@@ -181,6 +185,7 @@ pub struct SimpleSpec {
     /// keep this well above the longest pause a loaded worker can see.
     /// Default: 10 seconds (four default keepalive intervals)
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub worker_timeout_s: u64,
 
     /// Maximum time (seconds) an action can stay in Executing state without
@@ -191,6 +196,7 @@ pub struct SimpleSpec {
     ///
     /// Default: 0 (disabled)
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub max_action_executing_timeout_s: u64,
 
     /// How often the scheduler sweeps executing actions for ones to retire:
@@ -206,6 +212,7 @@ pub struct SimpleSpec {
         default = "default_executing_sweep_interval_s",
         deserialize_with = "convert_duration_with_shellexpand_and_negative"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::SignedDuration<i64>"))]
     pub executing_sweep_interval_s: i64,
 
     /// Evict a worker that has not reported back on an operation it was
@@ -216,6 +223,7 @@ pub struct SimpleSpec {
     /// worker's other operations.
     /// Default: 60 seconds
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub unacknowledged_kill_timeout_s: u64,
 
     /// Requeue a dispatched action the worker has not acknowledged within
@@ -228,6 +236,7 @@ pub struct SimpleSpec {
     /// connected or their every action would be requeued.
     /// Default: unset (off)
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub dispatch_ack_timeout_s: u64,
 
     /// Fail a queued action once no connected worker has been able to run
@@ -290,6 +299,7 @@ pub struct SimpleSpec {
     ///
     /// Default: 0 (never fail)
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub unsatisfiable_action_timeout_s: u64,
 
     /// Seconds a queued action waits while no worker at all is connected to
@@ -302,6 +312,7 @@ pub struct SimpleSpec {
     /// above the longest time a pool needs to bring up its first worker.
     /// Default: 0 (never fail)
     #[serde(default, deserialize_with = "convert_duration_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub no_worker_action_timeout_s: u64,
 
     /// If a job returns an internal error or times out this many times the
@@ -314,6 +325,7 @@ pub struct SimpleSpec {
     /// `memory_escalation.max_steps`.
     /// Default: 3
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub max_job_retries: usize,
 
     /// How many times an action whose worker was lost (disconnected, timed
@@ -324,6 +336,7 @@ pub struct SimpleSpec {
     /// down every time it runs.
     /// Default: 10
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub max_worker_loss_retries: usize,
 
     /// The strategy used to assign workers jobs.
@@ -400,6 +413,10 @@ pub struct SimpleSpec {
         default,
         deserialize_with = "convert_optional_numeric_with_shellexpand"
     )]
+    #[cfg_attr(
+        feature = "dev-schema",
+        schemars(with = "Option<schema::Numeric<usize>>")
+    )]
     pub max_timeout_retries: Option<usize>,
 
     /// Drain a worker whose recent attempts keep failing. A worker that
@@ -426,6 +443,7 @@ pub struct SimpleSpec {
         default = "default_worker_match_logging_interval_s",
         deserialize_with = "convert_duration_with_shellexpand_and_negative"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::SignedDuration<i64>"))]
     pub worker_match_logging_interval_s: i64,
 
     /// Every N seconds, run a worker matching pass even if no task or worker
@@ -440,6 +458,7 @@ pub struct SimpleSpec {
         default = "default_fallback_match_interval_s",
         deserialize_with = "convert_duration_with_shellexpand_and_negative"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::SignedDuration<i64>"))]
     pub fallback_match_interval_s: i64,
 }
 
@@ -498,12 +517,14 @@ pub struct GrpcSpec {
     /// request is queued.
     /// Default: unlimited
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub max_concurrent_requests: usize,
 
     /// The number of connections to make to each specified endpoint to balance
     /// the load over multiple TCP connections.
     /// Default: 1.
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub connections_per_endpoint: usize,
 
     /// Header names to copy from the incoming client request onto every
@@ -700,6 +721,7 @@ pub struct ReservationHoldSpec {
         default = "default_reservation_hold_after_s",
         deserialize_with = "convert_duration_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub hold_after_s: u64,
 
     /// Seconds a hold lasts at most, capped at a week. A hold that long
@@ -714,12 +736,14 @@ pub struct ReservationHoldSpec {
         default = "default_reservation_max_hold_s",
         deserialize_with = "convert_duration_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub max_hold_s: u64,
 
     /// Most workers held at once on this scheduler replica. 0 is one tenth
     /// of the workers connected to it, and at least one.
     /// Default: 0
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub max_held_workers: usize,
 }
 
@@ -769,6 +793,7 @@ pub struct WorkerOutcomeTripwireSpec {
         default = "default_tripwire_window",
         deserialize_with = "convert_numeric_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub window: usize,
 
     /// Failures that drain the worker: this many in a row, or this many
@@ -779,6 +804,7 @@ pub struct WorkerOutcomeTripwireSpec {
         default = "default_tripwire_min_failures",
         deserialize_with = "convert_numeric_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub min_failures: usize,
 
     /// Failures as a percentage of the attempts judged, also required, so
@@ -788,6 +814,7 @@ pub struct WorkerOutcomeTripwireSpec {
         default = "default_tripwire_failure_percent",
         deserialize_with = "convert_numeric_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub failure_percent: usize,
 
     /// Most workers drained this way at once, as a percentage of the
@@ -798,6 +825,7 @@ pub struct WorkerOutcomeTripwireSpec {
         default = "default_tripwire_max_drained_percent",
         deserialize_with = "convert_numeric_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<usize>"))]
     pub max_drained_percent: usize,
 }
 
@@ -835,14 +863,17 @@ pub struct ColdStartSpec {
     /// Value for `cpu_property_name`, on the scale the workers advertise.
     /// 0 leaves the property alone.
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub cpu_count: u64,
 
     /// Value for `memory_property_name`, in KiB. 0 leaves the property alone.
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub memory_kb: u64,
 
     /// Value for `disk_property_name`, in KiB. 0 leaves the property alone.
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub disk_kb: u64,
 }
 
@@ -870,14 +901,17 @@ pub struct SizeClassSpec {
 
     /// Value for `cpu_property_name`, on the scale the workers advertise.
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub cpu_count: u64,
 
     /// Value for `memory_property_name`, in KiB.
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub memory_kb: u64,
 
     /// Value for `disk_property_name`, in KiB.
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub disk_kb: u64,
 
     /// Value for `gpu_property_name`, on the scale the workers advertise:
@@ -889,6 +923,7 @@ pub struct SizeClassSpec {
     /// `default_class`), or, for a class that also names `gpu_memory_kb`,
     /// being the class an action's measured device memory fits.
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub gpu_count: u64,
 
     /// Value for `gpu_memory_property_name`, in KiB: the device memory of
@@ -899,6 +934,7 @@ pub struct SizeClassSpec {
     /// largest such class the measured number stands by itself, so the
     /// action is offered only to a worker advertising that much.
     #[serde(default, deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub gpu_memory_kb: u64,
 }
 
@@ -910,6 +946,7 @@ pub struct SizeClassSpec {
 #[cfg_attr(feature = "dev-schema", derive(JsonSchema))]
 pub struct TimeoutClassSpec {
     #[serde(deserialize_with = "convert_numeric_with_shellexpand")]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub min_timeout_s: u64,
     pub class: String,
 }
@@ -953,6 +990,7 @@ pub struct HistoricalResourceSpec {
         default = "default_historical_resource_refresh_interval_s",
         deserialize_with = "convert_duration_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub refresh_interval_s: u64,
 
     /// Headroom over the measured 95th percentile, as a share of it: 20
@@ -962,6 +1000,7 @@ pub struct HistoricalResourceSpec {
         default = "default_historical_resource_headroom_percent",
         deserialize_with = "convert_numeric_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub headroom_percent: u64,
 
     /// A key not measured for this many days is forgotten. Within the
@@ -973,6 +1012,7 @@ pub struct HistoricalResourceSpec {
         default = "default_historical_resource_window_days",
         deserialize_with = "convert_numeric_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Numeric<u64>"))]
     pub window_days: u64,
 
     /// Accounting budget for the learned sketch, including keys, map and
@@ -988,6 +1028,7 @@ pub struct HistoricalResourceSpec {
         default = "default_historical_resource_memory_budget_bytes",
         deserialize_with = "convert_data_size_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::DataSize<u64>"))]
     pub memory_budget_bytes: u64,
 
     /// Store for this replica's learned sketch. This must name a store in this
@@ -1021,6 +1062,7 @@ pub struct HistoricalResourceSpec {
         default = "default_historical_resource_snapshot_interval_s",
         deserialize_with = "convert_duration_with_shellexpand"
     )]
+    #[cfg_attr(feature = "dev-schema", schemars(with = "schema::Duration<u64>"))]
     pub snapshot_interval_s: u64,
 
     /// Platform property name used for CPU minimums. The nested scheduler
