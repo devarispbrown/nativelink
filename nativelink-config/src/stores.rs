@@ -668,83 +668,80 @@ pub enum StoreSpec {
     ExperimentalMongo(ExperimentalMongoSpec),
 }
 
-impl StoreSpec {
-    pub(crate) fn visit_grpc_specs(&self, visitor: &mut dyn FnMut(&GrpcSpec)) {
-        match self {
-            Self::CacheMetrics(spec) => spec.backend.visit_grpc_specs(visitor),
-            Self::Verify(spec) => spec.backend.visit_grpc_specs(visitor),
-            Self::Compression(spec) => spec.backend.visit_grpc_specs(visitor),
-            Self::Dedup(spec) => {
-                spec.index_store.visit_grpc_specs(visitor);
-                spec.content_store.visit_grpc_specs(visitor);
+/// Calls `$visit` on each [`StoreSpec`] nested directly inside `$spec`.
+///
+/// Shared by [`StoreSpec::for_each_child`] and
+/// [`StoreSpec::for_each_child_mut`] so the two can't drift: pass `mut` as the
+/// third argument for the mutable walk. The match is exhaustive on purpose, so
+/// a newly added store variant forces this to be revisited.
+macro_rules! for_each_child {
+    ($spec:expr, $visit:expr $(, $mut:tt)?) => {
+        match $spec {
+            StoreSpec::CacheMetrics(spec) => $visit(&$($mut)? spec.backend),
+            StoreSpec::Verify(spec) => $visit(&$($mut)? spec.backend),
+            StoreSpec::Compression(spec) => $visit(&$($mut)? spec.backend),
+            StoreSpec::Dedup(spec) => {
+                $visit(&$($mut)? spec.index_store);
+                $visit(&$($mut)? spec.content_store);
             }
-            Self::ExistenceCache(spec) => spec.backend.visit_grpc_specs(visitor),
-            Self::CompletenessChecking(spec) => {
-                spec.backend.visit_grpc_specs(visitor);
-                spec.cas_store.visit_grpc_specs(visitor);
+            StoreSpec::ExistenceCache(spec) => $visit(&$($mut)? spec.backend),
+            StoreSpec::CompletenessChecking(spec) => {
+                $visit(&$($mut)? spec.backend);
+                $visit(&$($mut)? spec.cas_store);
             }
-            Self::FastSlow(spec) => {
-                spec.fast.visit_grpc_specs(visitor);
-                spec.slow.visit_grpc_specs(visitor);
+            StoreSpec::FastSlow(spec) => {
+                $visit(&$($mut)? spec.fast);
+                $visit(&$($mut)? spec.slow);
             }
-            Self::Shard(spec) => {
-                for shard in &spec.stores {
-                    shard.store.visit_grpc_specs(visitor);
+            StoreSpec::Shard(spec) => {
+                for shard in &$($mut)? spec.stores {
+                    $visit(&$($mut)? shard.store);
                 }
             }
-            Self::SizePartitioning(spec) => {
-                spec.lower_store.visit_grpc_specs(visitor);
-                spec.upper_store.visit_grpc_specs(visitor);
+            StoreSpec::SizePartitioning(spec) => {
+                $visit(&$($mut)? spec.lower_store);
+                $visit(&$($mut)? spec.upper_store);
             }
-            Self::Grpc(spec) => visitor(spec),
-            Self::Memory(_)
-            | Self::ExperimentalCloudObjectStore(_)
-            | Self::OntapS3ExistenceCache(_)
-            | Self::Filesystem(_)
-            | Self::RefStore(_)
-            | Self::RedisStore(_)
-            | Self::Noop(_)
-            | Self::ExperimentalMongo(_) => {}
+            // Leaf stores, and stores whose backends are concrete specs rather
+            // than nested `StoreSpec`s.
+            StoreSpec::Memory(_)
+            | StoreSpec::ExperimentalCloudObjectStore(_)
+            | StoreSpec::OntapS3ExistenceCache(_)
+            | StoreSpec::Filesystem(_)
+            | StoreSpec::Grpc(_)
+            | StoreSpec::RefStore(_)
+            | StoreSpec::RedisStore(_)
+            | StoreSpec::Noop(_)
+            | StoreSpec::ExperimentalMongo(_) => {}
         }
+    };
+}
+
+impl StoreSpec {
+    /// Calls `visit` on each store nested directly inside this one, in
+    /// declaration order. It does not recurse; a caller that needs the whole
+    /// tree calls itself from `visit`.
+    pub(crate) fn for_each_child<'a>(&'a self, visit: &mut dyn FnMut(&'a Self)) {
+        for_each_child!(self, visit);
+    }
+
+    /// Mutable form of [`Self::for_each_child`].
+    pub(crate) fn for_each_child_mut(&mut self, visit: &mut dyn FnMut(&mut Self)) {
+        for_each_child!(self, visit, mut);
+    }
+
+    pub(crate) fn visit_grpc_specs(&self, visitor: &mut dyn FnMut(&GrpcSpec)) {
+        if let Self::Grpc(spec) = self {
+            visitor(spec);
+        }
+        self.for_each_child(&mut |child| child.visit_grpc_specs(visitor));
     }
 
     pub(crate) fn visit_grpc_specs_mut(&mut self, visitor: &mut dyn FnMut(&mut GrpcSpec)) {
-        match self {
-            Self::CacheMetrics(spec) => spec.backend.visit_grpc_specs_mut(visitor),
-            Self::Verify(spec) => spec.backend.visit_grpc_specs_mut(visitor),
-            Self::Compression(spec) => spec.backend.visit_grpc_specs_mut(visitor),
-            Self::Dedup(spec) => {
-                spec.index_store.visit_grpc_specs_mut(visitor);
-                spec.content_store.visit_grpc_specs_mut(visitor);
-            }
-            Self::ExistenceCache(spec) => spec.backend.visit_grpc_specs_mut(visitor),
-            Self::CompletenessChecking(spec) => {
-                spec.backend.visit_grpc_specs_mut(visitor);
-                spec.cas_store.visit_grpc_specs_mut(visitor);
-            }
-            Self::FastSlow(spec) => {
-                spec.fast.visit_grpc_specs_mut(visitor);
-                spec.slow.visit_grpc_specs_mut(visitor);
-            }
-            Self::Shard(spec) => {
-                for shard in &mut spec.stores {
-                    shard.store.visit_grpc_specs_mut(visitor);
-                }
-            }
-            Self::SizePartitioning(spec) => {
-                spec.lower_store.visit_grpc_specs_mut(visitor);
-                spec.upper_store.visit_grpc_specs_mut(visitor);
-            }
-            Self::Grpc(spec) => visitor(spec),
-            Self::Memory(_)
-            | Self::ExperimentalCloudObjectStore(_)
-            | Self::OntapS3ExistenceCache(_)
-            | Self::Filesystem(_)
-            | Self::RefStore(_)
-            | Self::RedisStore(_)
-            | Self::Noop(_)
-            | Self::ExperimentalMongo(_) => {}
+        if let Self::Grpc(spec) = self {
+            visitor(spec);
         }
+        self.for_each_child_mut(&mut |child| child.visit_grpc_specs_mut(visitor));
     }
 }
 

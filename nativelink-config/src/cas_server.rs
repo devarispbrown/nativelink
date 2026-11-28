@@ -2559,48 +2559,12 @@ fn accepts_workers(spec: &SchedulerSpec) -> bool {
 }
 
 /// Recursively collects every `ref_store` name that appears anywhere inside a
-/// single [`StoreSpec`] tree (the wrapper stores nest other `StoreSpec`s). The
-/// match is exhaustive on purpose so a newly added wrapping store forces this
-/// to be revisited.
+/// single [`StoreSpec`] tree (the wrapper stores nest other `StoreSpec`s).
 fn collect_ref_store_names<'a>(spec: &'a StoreSpec, out: &mut Vec<&'a StoreRefName>) {
-    match spec {
-        StoreSpec::RefStore(ref_spec) => out.push(&ref_spec.name),
-        StoreSpec::CacheMetrics(inner) => collect_ref_store_names(&inner.backend, out),
-        StoreSpec::Verify(inner) => collect_ref_store_names(&inner.backend, out),
-        StoreSpec::CompletenessChecking(inner) => {
-            collect_ref_store_names(&inner.backend, out);
-            collect_ref_store_names(&inner.cas_store, out);
-        }
-        StoreSpec::Compression(inner) => collect_ref_store_names(&inner.backend, out),
-        StoreSpec::Dedup(inner) => {
-            collect_ref_store_names(&inner.index_store, out);
-            collect_ref_store_names(&inner.content_store, out);
-        }
-        StoreSpec::ExistenceCache(inner) => collect_ref_store_names(&inner.backend, out),
-        StoreSpec::FastSlow(inner) => {
-            collect_ref_store_names(&inner.fast, out);
-            collect_ref_store_names(&inner.slow, out);
-        }
-        StoreSpec::Shard(inner) => {
-            for shard in &inner.stores {
-                collect_ref_store_names(&shard.store, out);
-            }
-        }
-        StoreSpec::SizePartitioning(inner) => {
-            collect_ref_store_names(&inner.lower_store, out);
-            collect_ref_store_names(&inner.upper_store, out);
-        }
-        // Leaf stores and stores whose backends are concrete (non-`StoreSpec`)
-        // specs carry no nested `ref_store` names.
-        StoreSpec::Memory(_)
-        | StoreSpec::ExperimentalCloudObjectStore(_)
-        | StoreSpec::OntapS3ExistenceCache(_)
-        | StoreSpec::Filesystem(_)
-        | StoreSpec::Grpc(_)
-        | StoreSpec::RedisStore(_)
-        | StoreSpec::Noop(_)
-        | StoreSpec::ExperimentalMongo(_) => {}
+    if let StoreSpec::RefStore(ref_spec) = spec {
+        out.push(&ref_spec.name);
     }
+    spec.for_each_child(&mut |child| collect_ref_store_names(child, out));
 }
 
 /// Accumulates unresolved-reference problems while walking a [`CasConfig`].
@@ -2631,7 +2595,7 @@ impl<'a> ReferenceChecker<'a> {
     /// Walks a [`SchedulerSpec`] tree, resolving every store reference it
     /// carries and descending into nested schedulers. The match is exhaustive
     /// on purpose so a newly added scheduler variant forces this to be
-    /// revisited (same design as [`collect_ref_store_names`]).
+    /// revisited (same design as `StoreSpec::for_each_child`).
     fn scheduler_spec(&mut self, path: &str, spec: &'a SchedulerSpec) {
         match spec {
             SchedulerSpec::Simple(simple) => match &simple.experimental_backend {
@@ -3335,6 +3299,59 @@ mod tests {
             message.contains("CAS_TYPO") && message.contains("stores[WRAPPED]"),
             "error must name the nested bad ref and its owning store: {message}"
         );
+    }
+
+    /// One store of every wrapping kind, with a `ref_store` under each
+    /// child, so a child the walk misses drops a name from the list.
+    fn every_wrapper_spec() -> StoreSpec {
+        serde_json5::from_str(
+            r#"{ fast_slow: {
+                fast: { cache_metrics: { cache_type: "cas", backend: { verify: { backend: { compression: {
+                    backend: { ref_store: { name: "a" } },
+                    compression_algorithm: { lz4: {} },
+                } } } } } },
+                slow: { dedup: {
+                    index_store: { existence_cache: { backend: { ref_store: { name: "b" } } } },
+                    content_store: { completeness_checking: {
+                        backend: { ref_store: { name: "c" } },
+                        cas_store: { shard: { stores: [
+                            { store: { ref_store: { name: "d" } }, weight: 1 },
+                            { store: { size_partitioning: {
+                                size: 1,
+                                lower_store: { ref_store: { name: "e" } },
+                                upper_store: { ref_store: { name: "f" } },
+                            } }, weight: 1 },
+                        ] } },
+                    } },
+                } },
+            } }"#,
+        )
+        .unwrap()
+    }
+
+    fn ref_names(spec: &StoreSpec) -> Vec<String> {
+        let mut names = Vec::new();
+        collect_ref_store_names(spec, &mut names);
+        names.iter().map(ToString::to_string).collect()
+    }
+
+    #[test]
+    fn for_each_child_reaches_every_nested_store() {
+        let spec = every_wrapper_spec();
+        assert_eq!(ref_names(&spec), ["a", "b", "c", "d", "e", "f"]);
+    }
+
+    #[test]
+    fn for_each_child_mut_reaches_every_nested_store() {
+        fn shout(spec: &mut StoreSpec) {
+            if let StoreSpec::RefStore(ref_spec) = spec {
+                ref_spec.name = ref_spec.name.to_uppercase();
+            }
+            spec.for_each_child_mut(&mut shout);
+        }
+        let mut spec = every_wrapper_spec();
+        shout(&mut spec);
+        assert_eq!(ref_names(&spec), ["A", "B", "C", "D", "E", "F"]);
     }
 
     #[test]
